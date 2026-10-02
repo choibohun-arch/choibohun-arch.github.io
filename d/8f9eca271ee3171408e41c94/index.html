@@ -106,10 +106,10 @@ function render(D){
    ${ses.length?`<table><tr><th>시작</th><th class="n">SoC</th><th class="n">충전량</th><th>상태</th></tr>${ses.map(s=>`<tr><td>${dt(s.start)}</td><td class="n">${f(s.soc_start)}→${f(s.soc_end)}%</td><td class="n">${f(s.kwh,1)} kWh</td><td>${esc(cs(s.state))}</td></tr>`).join("")}</table>`
    :`<div class="empty">기록 기간 중 충전 세션 없음${C.last_energy_added_kwh!=null?` (마지막 충전 시 추가된 에너지: ${f(C.last_energy_added_kwh,1)} kWh)`:""}</div>`}`);
 
-  const T=D.tires,tc={fl:"#4ea1ff",fr:"#3ecf8e",rl:"#f5a524",rr:"#e82127"},tn={fl:"앞 좌",fr:"앞 우",rl:"뒤 좌",rr:"뒤 우"};
+  const PSI=14.5038,T=D.tires,tc={fl:"#4ea1ff",fr:"#3ecf8e",rl:"#f5a524",rr:"#e82127"},tn={fl:"앞 좌",fr:"앞 우",rl:"뒤 좌",rr:"뒤 우"};
   if(T.length){const last=T[T.length-1];
-    set("tires",`<div class="row">${Object.keys(tn).map(k=>`<div class="kv" style="flex-basis:22%;min-width:70px"><span style="color:${tc[k]}">● ${tn[k]}</span><b>${last[k]!=null?f(last[k],2)+" bar":"–"}</b></div>`).join("")}</div>
-     <div style="margin-top:10px">${line(Object.keys(tn).map(k=>({color:tc[k],pts:T.filter(p=>p[k]!=null).map(p=>[new Date(p.t+"+09:00").getTime(),p[k]])})),{xfmt:md,yfmt:v=>f(v,2)})}</div>`)}
+    set("tires",`<div class="row">${Object.keys(tn).map(k=>`<div class="kv" style="flex-basis:22%;min-width:70px"><span style="color:${tc[k]}">● ${tn[k]}</span><b>${last[k]!=null?f(last[k]*PSI,1)+" psi":"–"}</b></div>`).join("")}</div>
+     <div style="margin-top:10px">${line(Object.keys(tn).map(k=>({color:tc[k],pts:T.filter(p=>p[k]!=null).map(p=>[new Date(p.t+"+09:00").getTime(),p[k]*PSI])})),{xfmt:md,yfmt:v=>f(v,1)})}</div><div class="mut">단위: psi (1 bar = 14.5038 psi)</div>`)}
   else set("tires",`<div class="empty">공기압 데이터 없음 (차량이 TPMS 값을 보고하지 않거나 아직 수집 전)</div>`);
 
   const A=D.afterblow;
