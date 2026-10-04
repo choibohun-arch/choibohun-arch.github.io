@@ -38,12 +38,7 @@ footer{color:var(--mut);font-size:11.5px;text-align:center;margin-top:16px}
 .btn.sec{background:#262a31;width:auto;padding:6px 12px;font-size:12px}
 #lock label{color:var(--mut);font-size:13px;display:flex;gap:8px;align-items:center;margin:4px 0 14px}
 #err{color:var(--warn);font-size:13px;min-height:18px;margin-top:8px}
-#map{height:300px;border-radius:12px;overflow:hidden;background:#1d2127}
-.nmap{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:14px;border-radius:12px;background:#03c75a;color:#fff;font-size:16px;font-weight:700;text-decoration:none;border:0}
-.nmap:active{filter:brightness(.9)}.nmap i{font-style:normal;background:#fff;color:#03c75a;border-radius:6px;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
-.carpin{font-size:30px;line-height:1;text-align:center;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
-.carpin span{display:block;width:16px;height:16px;margin:-4px auto 0;border-radius:50%;background:#e82127;border:3px solid #fff;box-shadow:0 0 0 2px rgba(232,33,39,.35)}
-.leaflet-popup-content{font:13px/1.45 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;margin:10px 12px}
+#map{height:260px;border-radius:12px;overflow:hidden;background:#1d2127}
 .tbl{overflow-x:auto}.tbl table{min-width:420px}
 .sum{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sum .kv{min-width:0}
 </style></head><body><main>
@@ -163,11 +158,7 @@ function renderExtra(D){
    <div class="mut" style="margin-top:8px">기록 시작 ${dt(M.tracked_since)} · 기록 기간 주행 ${f(M.tracked_km,1)} km${M.avg_wh_km==null?" · 전비는 SoC 기록이 있는 주행이 10 km 이상 쌓이면 표시":` (기준 ${f(M.avg_basis_km,1)} km)`}</div>`);
 
   const L=D.location;
-  if(L&&isFinite(L.lat)&&isFinite(L.lon)){const addr=L.addr||L.address||L.place||"";
-    set("loc",`<div id="map"></div>
-     <a class="nmap" id="nmapbtn" href="${esc(naverWeb(L))}" rel="noreferrer"><i>N</i>네이버지도에서 열기</a>
-     <div class="mut" style="margin-top:8px">📍 ${addr?esc(addr)+" · ":""}${dt(L.t)} KST 기준 (${ago(L.t)}) · <a style="color:var(--mut)" href="https://www.openstreetmap.org/?mlat=${L.lat}&mlon=${L.lon}#map=17/${L.lat}/${L.lon}" target="_blank" rel="noreferrer">OSM</a></div>`);
-    $("nmapbtn").addEventListener("click",ev=>{ev.preventDefault();openNaver(L)});loadMap(L,addr)}
+  if(L){set("loc",`<div id="map"></div><div class="mut" style="margin-top:8px">${dt(L.t)} KST 기준 · <a style="color:var(--blue)" href="https://www.openstreetmap.org/?mlat=${L.lat}&mlon=${L.lon}#map=16/${L.lat}/${L.lon}" target="_blank" rel="noreferrer">지도 앱에서 열기</a></div>`);loadMap(L)}
   else set("loc",`<div class="empty">아직 위치 기록 없음 (다음 정기 조회부터 표시)</div>`);
 
   const T=(D.trips||[]).slice().reverse();
@@ -180,31 +171,11 @@ function renderExtra(D){
    ${ses.length?`<div class="tbl"><table><tr><th>시작</th><th>종료</th><th class="n">시간</th><th class="n">SoC</th><th class="n">에너지</th></tr>${ses.map(s=>`<tr><td>${dt(s.start)}${s.approx?"*":""}</td><td>${s.ongoing?"충전 중":dt(s.end)}</td><td class="n">${dur(s.minutes)}</td><td class="n">${f(s.soc_start)}→${f(s.soc_end)}%<br><span class="mut">+${f(s.soc_added)}%</span></td><td class="n">${f(s.kwh,1)} kWh</td></tr>`).join("")}</table></div>${ses.some(s=>s.approx)?'<div class="mut">* 조회 사이에 충전이 끝나 시간은 대략값</div>':""}`
    :`<div class="empty">기록 기간 중 충전 세션 없음</div>`}`);
 }
-// ---------- Naver Map ----------
-const NM_NAME="모빌리티",NM_APP="io.github.choibohun-arch";
-const c6=v=>Number(v).toFixed(6);
-// legacy mobile-web endpoint: still drops a pin at arbitrary coordinates (checked 2026-10)
-const naverWeb=L=>`https://m.map.naver.com/map.naver?lat=${c6(L.lat)}&lng=${c6(L.lon)}&level=4&dlevel=12&pinTitle=${encodeURIComponent(NM_NAME)}&pinType=site`;
-const naverQ=L=>`place?lat=${c6(L.lat)}&lng=${c6(L.lon)}&name=${encodeURIComponent(NM_NAME)}&appname=${NM_APP}`;
-function openNaver(L){
-  const web=naverWeb(L),ua=navigator.userAgent,android=/Android/i.test(ua),ios=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-  if(!android&&!ios){window.open(web,"_blank","noopener");return}
-  let done=false;const stop=()=>{done=true};
-  document.addEventListener("visibilitychange",()=>{if(document.hidden)stop()},{once:true});window.addEventListener("pagehide",stop,{once:true});window.addEventListener("blur",stop,{once:true});
-  // Android: intent URL opens the Naver Map app (scheme nmap); if not installed the browser goes to the web map instead of Play Store
-  location.href=android?`intent://${naverQ(L)}#Intent;scheme=nmap;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.nmap;S.browser_fallback_url=${encodeURIComponent(web)};end`
-                       :`nmap://${naverQ(L)}`;
-  setTimeout(()=>{if(!done&&!document.hidden)location.href=web},1500);
-}
 let mapLoaded=null;
-function loadMap(L,addr){
-  const go=()=>{const ll=[L.lat,L.lon],m=window.L.map("map",{attributionControl:true}).setView(ll,16);
+function loadMap(L){
+  const go=()=>{const m=window.L.map("map",{attributionControl:true}).setView([L.lat,L.lon],15);
     window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(m);
-    window.L.circle(ll,{radius:40,color:"#e82127",weight:1,fillColor:"#e82127",fillOpacity:.12,interactive:false}).addTo(m);
-    const icon=window.L.divIcon({className:"",html:'<div class="carpin">🚗<span></span></div>',iconSize:[40,46],iconAnchor:[20,40],popupAnchor:[0,-38]});
-    window.L.marker(ll,{icon,title:"모빌리티 위치"}).addTo(m)
-      .bindPopup(`<b>🚗 모빌리티 위치</b><br>${addr?esc(addr)+"<br>":""}${dt(L.t)} KST (${ago(L.t)})`,{closeButton:false,autoPan:false}).openPopup();
-    setTimeout(()=>m.invalidateSize(),200)};
+    window.L.circleMarker([L.lat,L.lon],{radius:9,color:"#fff",weight:2,fillColor:"#e82127",fillOpacity:1}).addTo(m)};
   if(window.L)return go();
   const c=document.createElement("link");c.rel="stylesheet";c.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";c.integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H";c.crossOrigin="anonymous";document.head.appendChild(c);
   const s=document.createElement("script");s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";s.integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH";s.crossOrigin="anonymous";s.onload=go;
