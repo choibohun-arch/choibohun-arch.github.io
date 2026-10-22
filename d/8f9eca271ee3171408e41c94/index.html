@@ -55,6 +55,7 @@ footer{color:var(--mut);font-size:11.5px;text-align:center;margin-top:16px}
 <div id="app" hidden>
 <header><h1>모빌리티<small id="model"></small></h1><span class="mut" id="stale"></span></header>
 <section class="card" id="summary"><h2>요약</h2></section>
+<section class="card" id="scsave"><h2>슈퍼차저 무제한 절약액</h2></section>
 <section class="card" id="status"><h2>현재 상태</h2></section>
 <section class="card" id="loc"><h2>마지막 위치</h2></section>
 <section class="card" id="battery"><h2>배터리 건강</h2></section>
@@ -179,6 +180,18 @@ function renderExtra(D){
   const wk=P.weekly||[];
   set("periods",`${bars(wk.map(x=>({label:x.k.slice(5),v:x.km||0})),{h:120})}<div class="mut" style="margin-bottom:8px">주별 주행 거리</div>${prow(wk,"주")}<div style="height:10px"></div>${prow(P.monthly||[],"월")}
    <div class="mut" style="margin-top:6px">전비 = 주행 중 SoC 감소 × 추정 용량 ${f(D.car.cap_kwh_est,1)} kWh ÷ 거리 (SoC 기록 10 km 이상일 때)</div>`);
+  const S=D.sc_savings;
+  if(S){const yrs=S.years||[],ms=(S.months||[]).slice().reverse();
+    set("scsave",`<div class="big">${f(S.total_won/1e4)}<small> 만원</small></div>
+     <div class="mut" style="margin-top:4px">${f(S.total_won)}원 · ${esc(S.months[0].ym)}~${esc(S.months[S.months.length-1].ym)} 누적</div>
+     <div class="row" style="margin-top:10px"><div class="kv"><span>아낀 휘발유</span><b>${f(S.total_liters)} L</b></div><div class="kv"><span>누적 주행</span><b>${f(S.total_km)} km</b></div><div class="kv"><span>비교 연비</span><b>${f(S.km_per_l,1)} km/L</b></div></div>
+     <div style="margin-top:10px">${bars(yrs.map(x=>({label:x.y,v:Math.round(x.won/1e4)})),{h:130})}</div><div class="mut">연도별 절약액 (만원)</div>
+     <details style="margin-top:8px"><summary class="mut" style="cursor:pointer;padding:6px 0">월별 내역 (${ms.length}개월)</summary><div class="tbl"><table><tr><th>월</th><th class="n">km</th><th class="n">휘발유 원/L</th><th class="n">절약액</th></tr>${ms.map(x=>`<tr><td>${esc(x.ym)}${x.est?"*":""}</td><td class="n">${f(x.km)}</td><td class="n">${f(x.price,2)}${x.pflag?"†":""}</td><td class="n">${f(x.won)}원</td></tr>`).join("")}</table></div></details>
+     <div class="mut" style="margin-top:8px">계산: 월 주행거리 ÷ ${f(S.km_per_l,1)} km/L(동급 대형 휘발유 세단 가정) × 그달 전국 평균 보통휘발유 가격. 모든 충전을 무료 슈퍼차저로 간주(집 충전 비용 무시).<br>
+     * ${esc(S.months[0].ym)}~${esc(S.est_months?S.months[S.est_months-1].ym:"")}은 월별 기록이 없어 로그 시작 시점 주행거리를 ${f(S.est_months)}개월로 균등 분배한 추정치(월 ${f(S.est_km_per_month)} km), ${esc(S.log_start)}부터는 실제 기록.<br>
+     † 그달 월평균 미발표 → 최신 발표월(${esc(S.latest_price_month)}) 가격 사용.${(S.interpolated||[]).length?` 보간한 달: ${esc(S.interpolated.join(", "))}`:""}<br>
+     출처: ${esc(S.source)} <a href="${esc(S.source_url)}" rel="noreferrer" style="color:var(--blue)">통계자료</a></div>`);}
+  else set("scsave",'<div class="empty">휘발유 가격 데이터 없음</div>');
   const CB=D.cabin;
   set("cabin",CB?`<div class="row"><div class="kv"><span>30일 최고</span><b class="${CB.max>=45?"warn":""}">${f(CB.max,1)}°</b></div><div class="kv"><span>40° 이상인 날</span><b>${f(CB.hot_days)}일</b></div><div class="kv"><span>최고 기록일</span><b>${md(CB.max_day+"T12:00:00+09:00")}</b></div></div>
    <div style="margin-top:10px">${line([{pts:CB.daily.map(x=>[new Date(x.d+"T12:00:00+09:00").getTime(),x.max]),color:"#f5a524"},{pts:CB.daily.filter(x=>x.out!=null).map(x=>[new Date(x.d+"T12:00:00+09:00").getTime(),x.out]),color:"#4ea1ff"}],{h:130,xfmt:md,yfmt:v=>f(v)+"°",ref:{y:40,label:"40°"}})}</div>
