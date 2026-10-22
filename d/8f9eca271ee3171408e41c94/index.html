@@ -189,7 +189,11 @@ function renderExtra(D){
   else set("loc",`<div class="empty">아직 위치 기록 없음 (다음 정기 조회부터 표시)</div>`);
 
   const T=(D.trips||[]).slice().reverse();
-  set("trips",T.length?`<div class="tbl"><table><tr><th>날짜</th><th>시간(대략)</th><th class="n">거리</th><th class="n">SoC</th><th class="n">kWh</th></tr>${T.slice(0,40).map(t=>`<tr><td>${md(t.start)}</td><td>${tm(t.start)}~${tm(t.end)}${t.ongoing?" 🚗":""}<br><span class="mut">≤${dur(t.minutes)}</span></td><td class="n">${f(t.km,1)} km</td><td class="n">${t.soc_used!=null?"−"+f(t.soc_used)+"%":"–"}</td><td class="n">${t.kwh_est!=null?"~"+f(t.kwh_est,1):"–"}${t.wh_km?`<br><span class="mut">${f(t.wh_km)} Wh/km</span>`:""}</td></tr>`).join("")}</table></div>
+  const tday=t=>String(t.start||"").slice(0,10),tdays=[...new Set(T.map(tday))].slice(0,3);
+  const Tnew=T.filter(t=>tdays.includes(tday(t))),Told=T.filter(t=>!tdays.includes(tday(t)));
+  const trow=t=>`<tr><td>${md(t.start)}</td><td>${tm(t.start)}~${tm(t.end)}${t.ongoing?" 🚗":""}<br><span class="mut">≤${dur(t.minutes)}</span></td><td class="n">${f(t.km,1)} km</td><td class="n">${t.soc_used!=null?"−"+f(t.soc_used)+"%":"–"}</td><td class="n">${t.kwh_est!=null?"~"+f(t.kwh_est,1):"–"}${t.wh_km?`<br><span class="mut">${f(t.wh_km)} Wh/km</span>`:""}</td></tr>`;
+  const thead=`<tr><th>날짜</th><th>시간(대략)</th><th class="n">거리</th><th class="n">SoC</th><th class="n">kWh</th></tr>`;
+  set("trips",T.length?`<div class="tbl"><table>${thead}${Tnew.map(trow).join("")}</table></div>${Told.length?`<details class="olders" style="margin-top:8px"><summary class="mut" style="cursor:pointer;padding:6px 0">이전 주행기록 더보기 (${Told.length}건)</summary><div class="tbl"><table>${thead}${Told.map(trow).join("")}</table></div></details>`:""}
    <div class="mut" style="margin-top:6px">조회 사이 주행거리 증가로 감지 · 시간은 앞뒤 조회 시각 · kWh = SoC × 추정 용량 ${f(D.car.cap_kwh_est,1)} kWh</div>`
    :`<div class="empty">아직 감지된 주행 없음</div>`);
 
