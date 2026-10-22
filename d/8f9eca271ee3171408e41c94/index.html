@@ -59,10 +59,14 @@ footer{color:var(--mut);font-size:11.5px;text-align:center;margin-top:16px}
 <section class="card" id="loc"><h2>마지막 위치</h2></section>
 <section class="card" id="battery"><h2>배터리 건강</h2></section>
 <section class="card" id="driving"><h2>주행</h2></section>
+<section class="card" id="periods"><h2>주별·월별 거리와 전비</h2></section>
 <section class="card" id="trips"><h2>주행 기록</h2></section>
 <section class="card" id="charging"><h2>충전 기록</h2></section>
 <section class="card" id="tires"><h2>타이어 공기압</h2></section>
-<section class="card" id="afterblow"><h2>애프터블로우 기록</h2></section>
+<section class="card" id="cabin"><h2>주차 중 실내 온도</h2></section>
+<section class="card" id="ablog"><h2>애프터블로우 실행 기록</h2></section>
+<section class="card" id="lotte"><h2>롯데몰 무료주차 세션</h2></section>
+<section class="card" id="afterblow"><h2>애프터블로우 현재 상태</h2></section>
 <section class="card" id="software"><h2>소프트웨어</h2></section>
 <footer>주행가능거리는 ideal range 기준 · 주행/충전 기록은 정기 조회 사이를 추정한 값입니다<br><span id="gen"></span><br><br><button class="btn sec" id="logout">이 기기에서 잠그기</button></footer>
 </div></main>
@@ -80,14 +84,14 @@ const cs=s=>CS[s]||s||"–";
 function set(id,html){const el=$(id);el.innerHTML=el.querySelector("h2").outerHTML+html}
 
 // minimal SVG line chart: series=[{pts:[[x,y]],color}], x numeric
-function line(series,{h=150,yfmt=v=>f(v),xfmt=null,ymin=null,ymax=null,ref=null}={}){
+function line(series,{h=150,yfmt=v=>f(v),xfmt=null,ymin=null,ymax=null,ref=null,refs=null}={}){refs=refs||(ref?[ref]:[]);
   const W=600,H=h,L=44,R=10,T=10,B=24,all=series.flatMap(s=>s.pts);if(!all.length)return'<div class="empty">데이터 없음</div>';
   let x0=Math.min(...all.map(p=>p[0])),x1=Math.max(...all.map(p=>p[0]));if(x0===x1){x0-=1;x1+=1}
-  let ys=all.map(p=>p[1]);if(ref!=null)ys.push(ref.y);let y0=ymin??Math.min(...ys),y1=ymax??Math.max(...ys);if(y0===y1){y0-=1;y1+=1}const pad=(y1-y0)*.1;if(ymin==null)y0-=pad;if(ymax==null)y1+=pad;
+  let ys=all.map(p=>p[1]);refs.forEach(r=>ys.push(r.y));let y0=ymin??Math.min(...ys),y1=ymax??Math.max(...ys);if(y0===y1){y0-=1;y1+=1}const pad=(y1-y0)*.1;if(ymin==null)y0-=pad;if(ymax==null)y1+=pad;
   const X=x=>L+(x-x0)/(x1-x0)*(W-L-R),Y=y=>T+(1-(y-y0)/(y1-y0))*(H-T-B);
   let g="";for(let i=0;i<=3;i++){const v=y0+(y1-y0)*i/3;g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#262a31"/><text x="${L-6}" y="${Y(v)+4}" fill="#8b929c" font-size="11" text-anchor="end">${yfmt(v)}</text>`}
   if(xfmt){g+=`<text x="${L}" y="${H-6}" fill="#8b929c" font-size="11">${xfmt(x0)}</text><text x="${W-R}" y="${H-6}" fill="#8b929c" font-size="11" text-anchor="end">${xfmt(x1)}</text>`}
-  if(ref)g+=`<line x1="${L}" x2="${W-R}" y1="${Y(ref.y)}" y2="${Y(ref.y)}" stroke="#8b929c" stroke-dasharray="4 4"/><text x="${W-R}" y="${Y(ref.y)-4}" fill="#8b929c" font-size="11" text-anchor="end">${esc(ref.label)}</text>`;
+  for(const rf of refs)g+=`<line x1="${L}" x2="${W-R}" y1="${Y(rf.y)}" y2="${Y(rf.y)}" stroke="${rf.color||"#8b929c"}" stroke-dasharray="4 4"/><text x="${W-R}" y="${Y(rf.y)-4}" fill="${rf.color||"#8b929c"}" font-size="11" text-anchor="end">${esc(rf.label)}</text>`;
   for(const s of series){if(!s.pts.length)continue;const d=s.pts.map((p,i)=>(i?"L":"M")+X(p[0]).toFixed(1)+","+Y(p[1]).toFixed(1)).join("");
     g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round"/>`+s.pts.map(p=>`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3" fill="${s.color}"/>`).join("")}
   return`<svg viewBox="0 0 ${W} ${H}">${g}</svg>`}
@@ -119,12 +123,13 @@ function render(D){
    ${chg?`<div class="mut" style="margin-top:8px">${f(S.charger_power_kw)} kW · +${f(S.charge_energy_added_kwh,1)} kWh${S.minutes_to_full?` · 완충까지 ${f(S.minutes_to_full)}분`:""}</div>`:""}
    <div class="mut" style="margin-top:10px">마지막 업데이트: ${dt(S.updated)} KST · 누적 ${f(S.odometer_km)} km</div>`);
 
-  const B=D.battery,pts=B.series.filter(p=>p.soc>=20).map(p=>[new Date(p.t).getTime(),p.full_km]);
-  set("battery",`<div class="row"><div class="kv"><span>추정 완충 거리</span><b>${f(B.est_full_km)} km</b></div>
-   <div class="kv"><span>신차 EPA 대비</span><b>${B.degradation_pct!=null?"−"+f(B.degradation_pct,1)+"%":"–"}</b></div>
-   <div class="kv"><span>신차 EPA</span><b>${f(D.car.epa_km)} km</b></div></div>
-   <div style="margin-top:10px">${line([{pts,color:"#3ecf8e"}],{xfmt:md,yfmt:v=>f(v)})}</div>
-   <div class="mut">ideal range ÷ 사용가능 SoC 로 추정 (SoC 20% 이상 측정만). 측정 ${pts.length}회${pts.length<10?" — 아직 기록이 적어 추세는 참고용":""}</div>`);
+  const B=D.battery,H=D.health||{},hd=(H.daily||[]).map(p=>[new Date(p.d+"T12:00:00+09:00").getTime(),p.km]),base=H.baseline_km||378,floor=H.floor_km||355;
+  const cur=H.avg7??B.est_full_km,gap=cur!=null?cur-floor:null,left=(H.slope_30d<0&&gap>0)?gap/(-H.slope_30d):null;
+  set("battery",`<div class="row"><div class="kv"><span>추정 완충 거리 (7일 평균)</span><b class="${cur!=null&&cur<floor?"warn":""}">${f(cur,1)} km</b></div>
+   <div class="kv"><span>기준 ${f(base)} km 대비</span><b>${cur!=null?(cur-base>=0?"+":"")+f(cur-base,1)+" km":"–"}</b></div>
+   <div class="kv"><span>추세 (30일당)</span><b>${H.slope_30d!=null?(H.slope_30d>=0?"+":"")+f(H.slope_30d,1)+" km":"–"}</b></div></div>
+   <div style="margin-top:10px">${line([{pts:hd,color:"#3ecf8e"}],{xfmt:md,yfmt:v=>f(v),refs:[{y:base,label:"기준 "+base},{y:floor,label:"하한 "+floor,color:"#f5a524"}]})}</div>
+   <div class="mut">일별 중앙값 (ideal range ÷ 사용가능 SoC, SoC 20%↑) · 하한 ${f(floor)} km까지 여유 ${f(gap,1)} km${left!=null&&left<120?` · 현 추세면 약 ${f(left)}개월`:""}${H.slope_30d==null?" · 추세는 14일 이상 쌓이면 표시":" · 단기 추세는 기온·측정 SoC 영향이 큼"}<br>신차 EPA ${f(D.car.epa_km)} km 대비 −${f(B.degradation_pct,1)}%</div>`);
 
   const Dr=D.driving,daily=Dr.daily.map(d=>({label:d.date.slice(5).replace("-","/"),v:d.km||0}));
   set("driving",`<div class="row"><div class="kv"><span>이번 달 (${esc(Dr.month)})</span><b>${f(Dr.month_km,1)} km</b></div>
@@ -162,11 +167,24 @@ function renderExtra(D){
    <div class="kv" style="grid-column:1/-1"><span>평균 전비 (추정)</span><b>${M.avg_wh_km!=null?f(M.avg_wh_km)+" Wh/km":"–"}</b></div></div>
    <div class="mut" style="margin-top:8px">기록 시작 ${dt(M.tracked_since)} · 기록 기간 주행 ${f(M.tracked_km,1)} km${M.avg_wh_km==null?" · 전비는 SoC 기록이 있는 주행이 10 km 이상 쌓이면 표시":` (기준 ${f(M.avg_basis_km,1)} km)`}</div>`);
 
+  const P=D.periods||{},prow=(rows,lab)=>rows.length?`<div class="tbl"><table><tr><th>${lab}</th><th class="n">거리</th><th class="n">전비</th><th class="n">%/100km</th><th class="n">충전</th></tr>${rows.slice().reverse().map(x=>`<tr><td>${esc(x.k)}</td><td class="n">${f(x.km)} km</td><td class="n">${x.wh_km!=null?f(x.wh_km)+" Wh/km":"–"}</td><td class="n">${x.soc_100km!=null?f(x.soc_100km,1)+"%":"–"}</td><td class="n">${f(x.charges)}회<br><span class="mut">${f(x.charge_kwh)} kWh</span></td></tr>`).join("")}</table></div>`:'<div class="empty">데이터 없음</div>';
+  const wk=P.weekly||[];
+  set("periods",`${bars(wk.map(x=>({label:x.k.slice(5),v:x.km||0})),{h:120})}<div class="mut" style="margin-bottom:8px">주별 주행 거리</div>${prow(wk,"주")}<div style="height:10px"></div>${prow(P.monthly||[],"월")}
+   <div class="mut" style="margin-top:6px">전비 = 주행 중 SoC 감소 × 추정 용량 ${f(D.car.cap_kwh_est,1)} kWh ÷ 거리 (SoC 기록 10 km 이상일 때)</div>`);
+  const CB=D.cabin;
+  set("cabin",CB?`<div class="row"><div class="kv"><span>30일 최고</span><b class="${CB.max>=45?"warn":""}">${f(CB.max,1)}°</b></div><div class="kv"><span>40° 이상인 날</span><b>${f(CB.hot_days)}일</b></div><div class="kv"><span>최고 기록일</span><b>${md(CB.max_day+"T12:00:00+09:00")}</b></div></div>
+   <div style="margin-top:10px">${line([{pts:CB.daily.map(x=>[new Date(x.d+"T12:00:00+09:00").getTime(),x.max]),color:"#f5a524"},{pts:CB.daily.filter(x=>x.out!=null).map(x=>[new Date(x.d+"T12:00:00+09:00").getTime(),x.out]),color:"#4ea1ff"}],{h:130,xfmt:md,yfmt:v=>f(v)+"°",ref:{y:40,label:"40°"}})}</div>
+   <div class="mut">주홍: 주차 중 일 최고 실내온도 · 파랑: 그때 실외온도 (정기 조회 시점 기준)</div>`:'<div class="empty">데이터 없음</div>');
+  const AL=(D.afterblow_log||[]).slice().reverse();
+  set("ablog",AL.length?`<table><tr><th>시작</th><th class="n">시간</th><th class="n">실내</th><th class="n">설정</th></tr>${AL.map(x=>`<tr><td>${dt(x.start)}<br><span class="mut">${esc(x.note||"")}</span></td><td class="n">${f(x.minutes)}분</td><td class="n">${f(x.temp_start,1)}→${f(x.temp_end,1)}°</td><td class="n">${f(x.set_temp,1)}°</td></tr>`).join("")}</table>`:'<div class="empty">아직 기록 없음 (이번 업그레이드부터 누적)</div>');
+  const LL=(D.lotte_log||[]).slice().reverse();
+  set("lotte",LL.length?`<table><tr><th>시작</th><th>종료</th><th class="n">시간</th><th class="n">SoC</th></tr>${LL.map(x=>{const m=Math.round((new Date(x.end)-new Date(x.start))/6e4);return`<tr><td>${dt(x.start)}</td><td>${tm(x.end)}</td><td class="n ${m>110?"warn":""}">${dur(m)}</td><td class="n">${f(x.soc_start)}→${f(x.soc_end)}%</td></tr>`}).join("")}</table><div class="mut" style="margin-top:6px">감지 시각 기준 대략값 · 이번 업그레이드부터 누적</div>`:'<div class="empty">아직 기록 없음</div>');
+
   const L=D.location;
   if(L&&isFinite(L.lat)&&isFinite(L.lon)){const addr=L.addr||L.address||L.place||"";
     set("loc",`<div id="map"></div>
      <a class="nmap" id="nmapbtn" href="${esc(naverWeb(L))}" rel="noreferrer"><i>N</i>네이버지도에서 열기</a>
-     <div class="mut" style="margin-top:8px">📍 ${addr?esc(addr)+" · ":""}${dt(L.t)} KST 기준 (${ago(L.t)}) · <a style="color:var(--mut)" href="https://www.openstreetmap.org/?mlat=${L.lat}&mlon=${L.lon}#map=17/${L.lat}/${L.lon}" target="_blank" rel="noreferrer">OSM</a></div>`);
+     <div class="mut" style="margin-top:8px">📍 ${addr?esc(addr)+" · ":""}${dt(L.t)} KST 기준 (${ago(L.t)})</div>`);
     $("nmapbtn").addEventListener("click",ev=>{ev.preventDefault();openNaver(L)});loadMap(L,addr)}
   else set("loc",`<div class="empty">아직 위치 기록 없음 (다음 정기 조회부터 표시)</div>`);
 
@@ -177,7 +195,7 @@ function renderExtra(D){
 
   const C=D.charging,ses=(C.sessions||[]).slice().reverse(),tl=(C.timeline||[]).map(p=>[new Date(p.t).getTime(),p.soc]);
   set("charging",`${line([{pts:tl,color:"#4ea1ff"}],{h:120,xfmt:md,yfmt:v=>f(v)+"%",ymin:0,ymax:100})}<div class="mut" style="margin-bottom:8px">SoC 추이</div>
-   ${ses.length?`<div class="tbl"><table><tr><th>시작</th><th>종료</th><th class="n">시간</th><th class="n">SoC</th><th class="n">에너지</th></tr>${ses.map(s=>`<tr><td>${dt(s.start)}${s.approx?"*":""}</td><td>${s.ongoing?"충전 중":dt(s.end)}</td><td class="n">${dur(s.minutes)}</td><td class="n">${f(s.soc_start)}→${f(s.soc_end)}%<br><span class="mut">+${f(s.soc_added)}%</span></td><td class="n">${f(s.kwh,1)} kWh</td></tr>`).join("")}</table></div>${ses.some(s=>s.approx)?'<div class="mut">* 조회 사이에 충전이 끝나 시간은 대략값</div>':""}`
+   ${ses.length?`<div class="tbl"><table><tr><th>시작</th><th>종료</th><th class="n">시간</th><th class="n">SoC</th><th class="n">에너지</th></tr>${ses.map(s=>`<tr><td>${dt(s.start)}${s.approx?"*":""}${s.kind||s.place?`<br><span class="pill ${s.kind&&s.kind.startsWith("SC")?"on":""}">${esc([s.place,s.kind].filter(Boolean).join(" · "))}</span>`:""}</td><td>${s.ongoing?"충전 중":dt(s.end)}</td><td class="n">${dur(s.minutes)}</td><td class="n">${f(s.soc_start)}→${f(s.soc_end)}%<br><span class="mut">+${f(s.soc_added)}%</span></td><td class="n">${f(s.kwh,1)} kWh${s.max_kw?`<br><span class="mut">최대 ${f(s.max_kw)} kW</span>`:""}</td></tr>`).join("")}</table></div>${ses.some(s=>s.approx)?'<div class="mut">* 조회 사이에 충전이 끝나 시간은 대략값</div>':""}`
    :`<div class="empty">기록 기간 중 충전 세션 없음</div>`}`);
 }
 // ---------- Naver Map ----------
