@@ -71,6 +71,11 @@ footer{color:var(--mut);font-size:11.5px;text-align:center;margin-top:16px}
 <footer>주행가능거리는 ideal range 기준 · 주행/충전 기록은 정기 조회 사이를 추정한 값입니다<br><span id="gen"></span><br><br><button class="btn sec" id="logout">이 기기에서 잠그기</button></footer>
 </div></main>
 <script>
+function warrantyLeft(){const k=new Date(Date.now()+9*3600e3),y=k.getUTCFullYear(),m=k.getUTCMonth()+1,d=k.getUTCDate(),E=[2030,5,10];
+ const dd=Math.round((Date.UTC(E[0],E[1]-1,E[2])-Date.UTC(y,m-1,d))/864e5);if(dd<0)return "만료됨";
+ let mo=(E[0]-y)*12+(E[1]-m);if(E[2]<d)mo--;const yy=Math.floor(mo/12),r=mo%12;
+ return `남은 기간 ${yy?yy+"년 ":""}${r}개월 (D-${dd})`;}
+
 
 "use strict";
 const $=id=>document.getElementById(id);
@@ -130,7 +135,9 @@ function render(D){
    <div class="kv"><span>추세 (30일당)</span><b>${H.slope_30d!=null?(H.slope_30d>=0?"+":"")+f(H.slope_30d,1)+" km":"–"}</b></div></div>
    <div style="margin-top:10px">${line([{pts:hd,color:"#3ecf8e"}],{xfmt:md,yfmt:v=>f(v),refs:[{y:base,label:"기준 "+base},{y:floor,label:"하한 "+floor,color:"#f5a524"},{y:331,label:"참고 70% (331km)",color:"#e82127",dash:"1 3"}]})}</div>
    <div class="mut">일별 중앙값 (ideal range ÷ 사용가능 SoC, SoC 20%↑) · 하한 ${f(floor)} km까지 여유 ${f(gap,1)} km${left!=null&&left<120?` · 현 추세면 약 ${f(left)}개월`:""}${H.slope_30d==null?" · 추세는 14일 이상 쌓이면 표시":" · 단기 추세는 기온·측정 SoC 영향이 큼"}<br>신차 EPA ${f(D.car.epa_km)} km 대비 −${f(B.degradation_pct,1)}%</div>
-   <div class="mut" style="margin-top:6px">331km = 신차 EPA 473km의 70%. 이 차량은 보증기간은 연장됐지만 배터리 열화(용량) 보증은 없어서 참고용으로만 표시해요. 355km는 급격한 열화를 일찍 잡기 위한 알림선이에요.</div>`);
+   <div class="mut" style="margin-top:6px">331km = 신차 EPA 473km의 70%. 이 차량은 보증기간은 연장됐지만 배터리 열화(용량) 보증은 없어서 참고용으로만 표시해요. 355km는 급격한 열화를 일찍 잡기 위한 알림선이에요.</div>
+   <div class="kv" style="margin-top:10px"><span>배터리 보증 만료: 2030-05-10</span><b>${warrantyLeft()}</b></div>
+   <div class="mut">원래 2026-05-10 만료 → 2년+2년 연장 (테슬라코리아 네이버카페 공지). 고장 보증이며 용량 열화 보증은 없음.</div>`);
 
   const Dr=D.driving,daily=Dr.daily.map(d=>({label:d.date.slice(5).replace("-","/"),v:d.km||0}));
   set("driving",`<div class="row"><div class="kv"><span>이번 달 (${esc(Dr.month)})</span><b>${f(Dr.month_km,1)} km</b></div>
